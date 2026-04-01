@@ -343,7 +343,7 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 
 ### Phase 1: Core Pipeline (MVP)
 
-- [ ] P1-T1: Define Pydantic data models
+- [x] P1-T1: Define Pydantic data models
 - [ ] P1-T2: Implement news ingestion (mock + one real source)
 - [ ] P1-T3: Build analysis module with direct LLM prompting
 - [ ] P1-T4: Implement content generation with multi-style templates
