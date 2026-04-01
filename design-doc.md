@@ -362,7 +362,7 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 - [x] P1-T1: Define Pydantic data models
 - [x] P1-T2: Implement news ingestion (CoinGecko News API)
 - [x] P1-T3: Build analysis module with direct LLM prompting
-- [ ] P1-T4: Implement content generation with multi-style templates
+- [x] P1-T4: Implement content generation with multi-style templates
 - [ ] P1-T5: Implement LLM-as-judge scoring
 - [ ] P1-T6: Basic CLI execution with structured logging
 
