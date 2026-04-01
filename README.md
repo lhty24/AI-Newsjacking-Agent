@@ -2,6 +2,8 @@
 
 An AI-native growth engine for the crypto market. This system autonomously detects breaking crypto news, runs it through LLM-powered sentiment and signal analysis, generates multiple content variants in distinct styles — analytical, meme, and contrarian — scores them using an LLM-as-judge rubric, and distributes the top-performing picks to Twitter/X. The entire pipeline is designed as a modular, end-to-end automation that turns real-time market events into high-converting social content without manual intervention.
 
+![AI Newsjacking Agent](assets/AI-native-growth-engine.png)
+
 ## Architecture
 
 The system follows a five-stage pipeline, orchestrated by a single `run_pipeline()` function shared across CLI, API, and scheduler execution modes.
@@ -43,7 +45,8 @@ src/
 └── modules/
     ├── ingestion.py           # CoinGecko news fetching
     ├── analysis.py            # LLM-based news analysis
-    └── generation.py          # Multi-style content generation
+    ├── generation.py          # Multi-style content generation
+    └── scoring.py             # LLM-as-judge scoring and selection
 
 tests/
 ├── test_models.py
