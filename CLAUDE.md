@@ -50,6 +50,13 @@ The ingestion layer uses a single API:
 
 - **CoinGecko News API** — crypto-native news, no API key required for basic usage, 10–30 req/min
 
+## Environment Variables
+
+- `LLM_MODEL` — LiteLLM model identifier (default: `gpt-4o-mini`)
+- `LLM_API_KEY` — API key for the LLM provider (required at runtime)
+- `LLM_TEMPERATURE` — LLM temperature (default: `0.3`)
+- `LLM_MAX_TOKENS` — Max tokens per LLM response (default: `1024`)
+
 ## Error Handling Pattern
 
 Graceful degradation: partial failures don't halt the pipeline. If analysis fails for one item, continue with others. If scoring fails, fall back to random ranking. If posting fails, save locally and record error status.
