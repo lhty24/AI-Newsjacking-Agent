@@ -97,7 +97,7 @@ All pipeline data is defined as Pydantic models, serving as typed contracts betw
 ```python
 class NewsItem(BaseModel):
     id: str                     # UUID
-    source: str                 # e.g. "coindesk", "mock"
+    source: str                 # e.g. "cryptopanic", "coingecko", "newsapi", "cryptocompare"
     title: str
     content: str
     url: str | None = None
@@ -168,13 +168,45 @@ class PipelineRun(BaseModel):
 
 Responsibilities:
 
-- Fetch crypto-related news from APIs or mock sources
+- Fetch crypto-related news from multiple real-time APIs
 - Filter relevant topics (BTC, ETH, etc.)
 - Deduplicate entries by title similarity
+- Normalize responses from different APIs into the NewsItem model
 
 Key Functions:
 
-- `fetch_news() -> list[NewsItem]`
+- `fetch_news(sources: list[str] | None = None) -> list[NewsItem]`
+
+#### Supported News Sources
+
+**1. CryptoPanic API**
+- Endpoint: `https://cryptopanic.com/api/free/v1/posts/`
+- Auth: API key via query param `?auth_token=<key>` (free tier available)
+- Key params: `currencies=BTC,ETH`, `filter=hot|rising|bullish|bearish`, `kind=news`
+- Response mapping: `title` → title, `url` → url, `published_at` → published_at, `currencies[].code` → tickers, `source.title` → source prefix
+- Rate limit: 5 requests/minute (free tier)
+- Note: Free tier returns title + metadata only, no body text. Use URL for full article if needed.
+
+**2. CoinGecko News**
+- Endpoint: `https://api.coingecko.com/api/v3/news`
+- Auth: None required for basic usage (optional demo API key for higher limits)
+- Response mapping: `title` → title, `description` → content, `url` → url, `updated_at` → published_at, extract tickers from title/description
+- Rate limit: 10–30 requests/minute depending on tier
+
+**3. NewsAPI.org**
+- Endpoint: `https://newsapi.org/v2/everything`
+- Auth: API key via header `X-Api-Key` (free tier: 100 requests/day)
+- Key params: `q=crypto OR bitcoin OR ethereum`, `language=en`, `sortBy=publishedAt`
+- Response mapping: `articles[].title` → title, `articles[].description` → content, `articles[].url` → url, `articles[].publishedAt` → published_at, extract tickers from title/content
+- Rate limit: 100 requests/day (free tier)
+- Note: Free tier returns articles up to 1 month old only.
+
+**4. CryptoCompare News**
+- Endpoint: `https://min-api.cryptocompare.com/data/v2/news/`
+- Auth: API key via query param `?api_key=<key>` (free tier available)
+- Key params: `categories=BTC,ETH,Trading`, `lang=EN`, `sortOrder=latest`
+- Response mapping: `Data[].title` → title, `Data[].body` → content, `Data[].url` → url, `Data[].published_on` (unix timestamp) → published_at, `Data[].categories` → parse for tickers
+- Rate limit: 100,000 calls/month (free tier)
 
 ---
 
@@ -344,7 +376,7 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 ### Phase 1: Core Pipeline (MVP)
 
 - [x] P1-T1: Define Pydantic data models
-- [ ] P1-T2: Implement news ingestion (mock + one real source)
+- [ ] P1-T2: Implement news ingestion (CryptoPanic, CoinGecko, NewsAPI, CryptoCompare)
 - [ ] P1-T3: Build analysis module with direct LLM prompting
 - [ ] P1-T4: Implement content generation with multi-style templates
 - [ ] P1-T5: Implement LLM-as-judge scoring
@@ -389,9 +421,10 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 
 - Validate full pipeline execution end-to-end
 
-### Mock Testing
+### Mock Testing (Test-Only)
 
-- Simulate external APIs (Twitter, news sources, LLM providers)
+- Use unittest.mock / pytest-mock to simulate external API responses during testing
+- Mock news API responses with deterministic fixtures (not a runtime data source)
 - Use deterministic mock LLM responses for scoring tests
 
 ### Manual Testing
