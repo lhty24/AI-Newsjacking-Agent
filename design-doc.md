@@ -58,33 +58,41 @@ The system focuses on simulating a real-world "AI-native growth engine" that int
 
 ## 3. Detailed Architecture
 
-### System Overview
+The system follows a modular pipeline architecture. Three execution modes (CLI, API, Scheduler) invoke a shared `run_pipeline()` function that orchestrates the five-stage pipeline.
 
-The system follows a modular pipeline architecture with multiple execution interfaces.
+```mermaid
+graph TD
+    subgraph Execution Layer
+        CLI[CLI]
+        API[FastAPI]
+        SCHED[APScheduler]
+    end
 
-Execution Modes:
+    CLI --> RP[run_pipeline]
+    API --> RP
+    SCHED --> RP
 
-- CLI (manual execution)
-- API (frontend-triggered)
-- Scheduler (automated execution)
+    subgraph Pipeline
+        INGEST[News Ingestion] -->|NewsItem| ANALYZE[Analysis]
+        ANALYZE -->|AnalysisResult| GENERATE[Content Generation]
+        GENERATE -->|ContentVariant| SCORE[LLM-as-Judge Scoring]
+        SCORE -->|ContentVariant scored| DIST[Distribution]
+    end
 
-### Data Flow
+    RP --> INGEST
 
-1. News Ingestion
-2. LLM Analysis (sentiment, topics, signals)
-3. Content Generation (multi-style variants)
-4. LLM-as-Judge Scoring
-5. Distribution (Twitter)
+    subgraph External Services
+        COINGECKO[(CoinGecko API)]
+        LLM[(LLM - OpenAI / Claude)]
+        TWITTER[(Twitter/X API)]
+    end
 
-### Execution Layer
-
-All execution modes invoke a shared core function:
-
+    COINGECKO --> INGEST
+    LLM --> ANALYZE
+    LLM --> GENERATE
+    LLM --> SCORE
+    DIST -->|DistributionRecord| TWITTER
 ```
-run_pipeline()
-```
-
-This ensures consistency and reusability across interfaces.
 
 ---
 
@@ -168,45 +176,21 @@ class PipelineRun(BaseModel):
 
 Responsibilities:
 
-- Fetch crypto-related news from multiple real-time APIs
+- Fetch crypto-related news from the CoinGecko News API
 - Filter relevant topics (BTC, ETH, etc.)
 - Deduplicate entries by title similarity
-- Normalize responses from different APIs into the NewsItem model
+- Normalize responses into the NewsItem model
 
 Key Functions:
 
-- `fetch_news(sources: list[str] | None = None) -> list[NewsItem]`
+- `fetch_news() -> list[NewsItem]`
 
-#### Supported News Sources
+#### News Source: CoinGecko News API
 
-**1. CryptoPanic API**
-- Endpoint: `https://cryptopanic.com/api/free/v1/posts/`
-- Auth: API key via query param `?auth_token=<key>` (free tier available)
-- Key params: `currencies=BTC,ETH`, `filter=hot|rising|bullish|bearish`, `kind=news`
-- Response mapping: `title` → title, `url` → url, `published_at` → published_at, `currencies[].code` → tickers, `source.title` → source prefix
-- Rate limit: 5 requests/minute (free tier)
-- Note: Free tier returns title + metadata only, no body text. Use URL for full article if needed.
-
-**2. CoinGecko News**
 - Endpoint: `https://api.coingecko.com/api/v3/news`
 - Auth: None required for basic usage (optional demo API key for higher limits)
 - Response mapping: `title` → title, `description` → content, `url` → url, `updated_at` → published_at, extract tickers from title/description
 - Rate limit: 10–30 requests/minute depending on tier
-
-**3. NewsAPI.org**
-- Endpoint: `https://newsapi.org/v2/everything`
-- Auth: API key via header `X-Api-Key` (free tier: 100 requests/day)
-- Key params: `q=crypto OR bitcoin OR ethereum`, `language=en`, `sortBy=publishedAt`
-- Response mapping: `articles[].title` → title, `articles[].description` → content, `articles[].url` → url, `articles[].publishedAt` → published_at, extract tickers from title/content
-- Rate limit: 100 requests/day (free tier)
-- Note: Free tier returns articles up to 1 month old only.
-
-**4. CryptoCompare News**
-- Endpoint: `https://min-api.cryptocompare.com/data/v2/news/`
-- Auth: API key via query param `?api_key=<key>` (free tier available)
-- Key params: `categories=BTC,ETH,Trading`, `lang=EN`, `sortOrder=latest`
-- Response mapping: `Data[].title` → title, `Data[].body` → content, `Data[].url` → url, `Data[].published_on` (unix timestamp) → published_at, `Data[].categories` → parse for tickers
-- Rate limit: 100,000 calls/month (free tier)
 
 ---
 
@@ -376,7 +360,7 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 ### Phase 1: Core Pipeline (MVP)
 
 - [x] P1-T1: Define Pydantic data models
-- [ ] P1-T2: Implement news ingestion (CryptoPanic, CoinGecko, NewsAPI, CryptoCompare)
+- [ ] P1-T2: Implement news ingestion (CoinGecko News API)
 - [ ] P1-T3: Build analysis module with direct LLM prompting
 - [ ] P1-T4: Implement content generation with multi-style templates
 - [ ] P1-T5: Implement LLM-as-judge scoring

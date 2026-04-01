@@ -25,7 +25,7 @@ The system is a modular pipeline with five stages:
 News Ingestion → Analysis → Content Generation → LLM-as-Judge Scoring → Distribution
 ```
 
-- **News Ingestion** (`fetch_news`): Fetch crypto news from real APIs (CryptoPanic, CoinGecko, NewsAPI, CryptoCompare), filter and deduplicate
+- **News Ingestion** (`fetch_news`): Fetch crypto news from CoinGecko News API, filter and deduplicate
 - **Analysis** (`analyze_news`): LLM-based sentiment/topic/signal extraction
 - **Content Generation** (`generate_variants`): Multi-style output (analytical, meme, contrarian) with temperature control
 - **Scoring** (`score_variants`, `select_top_n`): Weighted rubric — Hook Strength 30%, Clarity 25%, Engagement 25%, Relevance 20%
@@ -44,14 +44,11 @@ Five Pydantic models define the data contracts: `NewsItem`, `AnalysisResult`, `C
 - `POST /post` — post a specific variant
 - `GET /runs` — list recent pipeline runs
 
-## News Sources
+## News Source
 
-Four real crypto news APIs power the ingestion layer:
+The ingestion layer uses a single API:
 
-- **CryptoPanic** — crypto news aggregator, requires free API key
-- **CoinGecko** — no API key required for basic usage
-- **NewsAPI.org** — general news with crypto filtering, requires free API key (100 req/day)
-- **CryptoCompare** — crypto-specific with category filtering, requires free API key
+- **CoinGecko News API** — crypto-native news, no API key required for basic usage, 10–30 req/min
 
 ## Error Handling Pattern
 
