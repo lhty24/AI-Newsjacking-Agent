@@ -38,9 +38,33 @@ COIN_ID_TO_TICKER = {
 # Ticker symbols to scan for in titles
 KNOWN_TICKERS = set(COIN_ID_TO_TICKER.values())
 
+# Full coin name → ticker (lowercase for case-insensitive matching)
+COIN_NAME_TO_TICKER = {
+    "bitcoin": "BTC",
+    "ethereum": "ETH",
+    "solana": "SOL",
+    "ripple": "XRP",
+    "cardano": "ADA",
+    "dogecoin": "DOGE",
+    "polkadot": "DOT",
+    "chainlink": "LINK",
+    "avalanche": "AVAX",
+    "polygon": "POL",
+    "litecoin": "LTC",
+    "uniswap": "UNI",
+    "cosmos": "ATOM",
+    "stellar": "XLM",
+    "near": "NEAR",
+    "arbitrum": "ARB",
+    "optimism": "OP",
+    "sui": "SUI",
+    "aptos": "APT",
+    "pepe": "PEPE",
+}
+
 
 def _extract_tickers(title: str, related_coin_ids: list[str]) -> list[str]:
-    """Extract ticker symbols from coin IDs and title text."""
+    """Extract ticker symbols from coin IDs, coin names, and title text."""
     tickers = set()
 
     for coin_id in related_coin_ids:
@@ -48,10 +72,17 @@ def _extract_tickers(title: str, related_coin_ids: list[str]) -> list[str]:
         if ticker:
             tickers.add(ticker)
 
-    # Regex fallback: scan title for known ticker symbols as whole words
     title_upper = title.upper()
+    title_lower = title.lower()
+
+    # Match ticker symbols as whole words (e.g. BTC, ETH)
     for ticker in KNOWN_TICKERS:
         if re.search(rf"\b{ticker}\b", title_upper):
+            tickers.add(ticker)
+
+    # Match full coin names as whole words (e.g. Bitcoin, Ethereum)
+    for name, ticker in COIN_NAME_TO_TICKER.items():
+        if re.search(rf"\b{name}\b", title_lower):
             tickers.add(ticker)
 
     return sorted(tickers)
@@ -83,6 +114,7 @@ def _call_coingecko() -> list[dict]:
     with httpx.Client(timeout=httpx.Timeout(10, read=30)) as client:
         response = client.get(
             COINGECKO_NEWS_URL,
+            params={"page": 1},
             headers={"User-Agent": "AI-Newsjacking-Agent/1.0"},
         )
         response.raise_for_status()
@@ -90,7 +122,7 @@ def _call_coingecko() -> list[dict]:
         return data if isinstance(data, list) else data.get("data", [])
 
 
-def fetch_news() -> list[NewsItem]:
+def fetch_news(max_items: int = 10) -> list[NewsItem]:
     """Fetch crypto news from CoinGecko and return as NewsItem list."""
     try:
         raw_items = _call_coingecko()
@@ -98,16 +130,13 @@ def fetch_news() -> list[NewsItem]:
         logger.warning("Failed to fetch news from CoinGecko after retries")
         return []
 
-    # Filter to news only (exclude guides)
-    news_items = [item for item in raw_items if item.get("type") != "guide"]
-
-    # Deduplicate by title
-    news_items = _deduplicate(news_items)
+    # Deduplicate by title and limit
+    news_items = _deduplicate(raw_items)[:max_items]
 
     results: list[NewsItem] = []
     for item in news_items:
         try:
-            source_name = item.get("source_name", "unknown")
+            source_name = item.get("news_site", "unknown")
             tickers = _extract_tickers(
                 item.get("title", ""),
                 item.get("related_coin_ids", []),
@@ -115,9 +144,9 @@ def fetch_news() -> list[NewsItem]:
             news = NewsItem(
                 source=f"coingecko:{source_name}",
                 title=item["title"],
-                content=item.get("title", ""),
+                content=item.get("description", item.get("title", "")),
                 url=item.get("url"),
-                published_at=item["posted_at"],
+                published_at=item["created_at"],
                 tickers=tickers,
             )
             results.append(news)
