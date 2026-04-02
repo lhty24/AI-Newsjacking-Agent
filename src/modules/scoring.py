@@ -56,7 +56,7 @@ def _call_llm(system_prompt: str, user_prompt: str) -> str:
             {"role": "user", "content": user_prompt},
         ],
         temperature=LLM_TEMPERATURE,
-        max_tokens=LLM_MAX_TOKENS,
+        max_tokens=4096,
         response_format={"type": "json_object"},
     )
     return response.choices[0].message.content

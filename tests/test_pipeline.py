@@ -103,8 +103,14 @@ class TestRunPipelineHappyPath:
             sample_variants[:2],  # 2 variants for first analysis
             sample_variants[2:],  # 1 variant for second analysis
         ]
-        mock_score.return_value = sample_variants
-        mock_top.return_value = sample_variants[:3]
+        mock_score.side_effect = [
+            sample_variants[:2],  # scored variants for first analysis
+            sample_variants[2:],  # scored variants for second analysis
+        ]
+        mock_top.side_effect = [
+            [sample_variants[0]],  # best from first analysis
+            [sample_variants[2]],  # best from second analysis
+        ]
 
         run, top = run_pipeline(trigger="cli")
 
@@ -114,13 +120,13 @@ class TestRunPipelineHappyPath:
         assert run.variants_generated == 3
         assert run.completed_at is not None
         assert run.error is None
-        assert len(top) == 3
+        assert len(top) == 2  # one best per analysis
 
         mock_fetch.assert_called_once()
         mock_analyze.assert_called_once_with(sample_news_items)
         assert mock_generate.call_count == 2
-        mock_score.assert_called_once()
-        mock_top.assert_called_once()
+        assert mock_score.call_count == 2  # once per analysis
+        assert mock_top.call_count == 2  # once per analysis
 
 
 class TestRunPipelineEarlyReturn:
@@ -172,8 +178,8 @@ class TestRunPipelineGracefulDegradation:
 
         assert run.status == "completed"
         assert run.variants_generated == 3
-        # Falls back to first N variants
-        assert len(top) <= 3
+        # Falls back to first variant per analysis
+        assert len(top) == 2
         mock_top.assert_not_called()
 
 

@@ -17,40 +17,39 @@ from src.modules.ingestion import (
 
 def _make_raw_item(
     title="Bitcoin hits $100k",
+    description="Bitcoin surges past $100k milestone.",
     url="https://example.com/article",
-    posted_at="2026-03-27T10:00:00Z",
-    source_name="AMBCrypto",
-    item_type="news",
+    created_at=1711533600,
+    news_site="AMBCrypto",
     related_coin_ids=None,
 ):
-    return {
+    item = {
         "title": title,
+        "description": description,
         "url": url,
-        "posted_at": posted_at,
-        "source_name": source_name,
-        "type": item_type,
-        "related_coin_ids": related_coin_ids or [],
-        "image": "https://example.com/img.jpg",
+        "created_at": created_at,
+        "news_site": news_site,
         "author": "Test Author",
+        "thumb_2x": "https://example.com/img.jpg",
     }
+    if related_coin_ids is not None:
+        item["related_coin_ids"] = related_coin_ids
+    return item
 
 
 @pytest.fixture
 def sample_response():
     return [
         _make_raw_item(
-            title="Bitcoin hits $100k amid ETF inflows",
-            related_coin_ids=["bitcoin"],
+            title="BTC hits $100k amid ETF inflows",
         ),
         _make_raw_item(
             title="Ethereum upgrade boosts staking rewards",
             url="https://example.com/eth",
-            related_coin_ids=["ethereum"],
         ),
         _make_raw_item(
             title="Solana DEX volume surges",
             url="https://example.com/sol",
-            related_coin_ids=["solana"],
         ),
     ]
 
@@ -81,6 +80,18 @@ class TestExtractTickers:
 
     def test_combined_dedup(self):
         tickers = _extract_tickers("BTC rallies hard", ["bitcoin"])
+        assert tickers == ["BTC"]
+
+    def test_from_coin_name_in_title(self):
+        tickers = _extract_tickers("Bitcoin surges past $100k", [])
+        assert tickers == ["BTC"]
+
+    def test_from_coin_name_case_insensitive(self):
+        tickers = _extract_tickers("Solana ecosystem faces hack", [])
+        assert tickers == ["SOL"]
+
+    def test_coin_name_and_ticker_dedup(self):
+        tickers = _extract_tickers("Bitcoin BTC rallies", [])
         assert tickers == ["BTC"]
 
     def test_unknown_coin_id_ignored(self):
@@ -126,27 +137,14 @@ class TestFetchNews:
 
         assert len(results) == 3
         assert all(isinstance(r, NewsItem) for r in results)
-        assert results[0].title == "Bitcoin hits $100k amid ETF inflows"
+        assert results[0].title == "BTC hits $100k amid ETF inflows"
         assert results[0].source == "coingecko:AMBCrypto"
         assert "BTC" in results[0].tickers
 
     @patch("src.modules.ingestion._call_coingecko")
-    def test_filters_guides(self, mock_call):
-        mock_call.return_value = [
-            _make_raw_item(title="News article", item_type="news"),
-            _make_raw_item(title="How to use Python", item_type="guide"),
-        ]
-        results = fetch_news()
-        assert len(results) == 1
-        assert results[0].title == "News article"
-
-    @patch("src.modules.ingestion._call_coingecko")
     def test_ticker_extraction(self, mock_call):
         mock_call.return_value = [
-            _make_raw_item(
-                title="ETH and BTC rally",
-                related_coin_ids=["bitcoin", "ethereum"],
-            ),
+            _make_raw_item(title="ETH and BTC rally"),
         ]
         results = fetch_news()
         assert results[0].tickers == ["BTC", "ETH"]

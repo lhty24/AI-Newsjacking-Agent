@@ -12,6 +12,9 @@ def main() -> int:
         format="[%(asctime)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    logging.getLogger("litellm").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     if not LLM_API_KEY:
         logging.error("LLM_API_KEY environment variable is required")

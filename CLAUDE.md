@@ -28,7 +28,7 @@ News Ingestion → Analysis → Content Generation → LLM-as-Judge Scoring → 
 - **News Ingestion** (`fetch_news`): Fetch crypto news from CoinGecko News API, filter and deduplicate
 - **Analysis** (`analyze_news`): LLM-based sentiment/topic/signal extraction
 - **Content Generation** (`generate_variants`): Multi-style output (analytical, meme, contrarian) with temperature control
-- **Scoring** (`score_variants`, `select_top_n`): Weighted rubric — Hook Strength 30%, Clarity 25%, Engagement 25%, Relevance 20%
+- **Scoring** (`score_variants`, `select_top_n`): Per-analysis scoring (3 variants scored together, best 1 kept per article). Weighted rubric — Hook Strength 30%, Clarity 25%, Engagement 25%, Relevance 20%
 - **Distribution** (`post_tweet`): Post to Twitter, track outcomes in DistributionRecord
 
 A single `run_pipeline()` function orchestrates all stages and is reused across three execution modes: CLI, FastAPI endpoints, and APScheduler.
