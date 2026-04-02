@@ -42,6 +42,7 @@ Five Pydantic models define the data contracts: `NewsItem`, `AnalysisResult`, `C
 - `GET /news` — latest ingested news
 - `POST /run` — trigger full pipeline
 - `POST /post` — post a specific variant
+- `POST /post/batch` — post multiple variants at once
 - `GET /runs` — list recent pipeline runs
 
 ## News Source
