@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from src.config import LLM_API_KEY
+from src.config import ConfigError, validate_config
 from src.pipeline import run_pipeline
 
 
@@ -16,8 +16,10 @@ def main() -> int:
     logging.getLogger("litellm").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    if not LLM_API_KEY:
-        logging.error("LLM_API_KEY environment variable is required")
+    try:
+        validate_config()
+    except ConfigError as e:
+        logging.error("%s", e)
         return 1
 
     run, top_variants = run_pipeline(trigger="cli")

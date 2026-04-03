@@ -1,9 +1,12 @@
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from src.config import validate_config
 from src.models.content import ContentVariant
 from src.models.distribution import DistributionRecord
 from src.models.news import NewsItem
@@ -13,7 +16,26 @@ from src.pipeline import run_pipeline
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AI Newsjacking Agent")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Validate configuration on startup."""
+    validate_config()
+    logger.info("Configuration validated, starting API server")
+    yield
+
+
+app = FastAPI(title="AI Newsjacking Agent", lifespan=lifespan)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch-all handler for unhandled exceptions."""
+    logger.error("Unhandled error on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 # In-memory stores keyed by run ID (cleared on restart, persistence deferred to P6-T3)
 _runs: dict[str, PipelineRun] = {}

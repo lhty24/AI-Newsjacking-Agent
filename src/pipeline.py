@@ -41,6 +41,9 @@ def run_pipeline(
         # --- Analysis ---
         t0 = time.time()
         analyses = analyze_news_batch(news_items)
+        analysis_failures = len(news_items) - len(analyses)
+        if analysis_failures > 0:
+            run.stage_errors["analysis"] = analysis_failures
         logger.info("Analysis: processed %d/%d articles (%.1fs)", len(analyses), len(news_items), time.time() - t0)
 
         # Build news lookup for logging
@@ -56,6 +59,8 @@ def run_pipeline(
         # --- Generation + Per-analysis Scoring ---
         t0 = time.time()
         total_generated = 0
+        generation_failures = 0
+        scoring_failures = 0
         top_variants: list[ContentVariant] = []
         for idx, analysis in enumerate(analyses, 1):
             news_item = news_by_id.get(analysis.news_item_id)
@@ -65,6 +70,10 @@ def run_pipeline(
 
             variants = generate_variants(analysis)
             total_generated += len(variants)
+            # Track generation failures (expected 3 styles per analysis)
+            expected_styles = 3
+            if len(variants) < expected_styles:
+                generation_failures += expected_styles - len(variants)
             for v in variants:
                 text_preview = v.text[:80] + "..." if len(v.text) > 80 else v.text
                 logger.info("  Variant [%s]: \"%s\"", v.style, text_preview)
@@ -76,6 +85,7 @@ def run_pipeline(
                 best = select_top_n(scored, 1)[0]
             except Exception:
                 logger.warning("  Scoring failed, keeping first variant")
+                scoring_failures += 1
                 best = variants[0]
             top_variants.append(best)
 
@@ -90,6 +100,10 @@ def run_pipeline(
         )
 
         # --- Finalize ---
+        if generation_failures > 0:
+            run.stage_errors["generation"] = generation_failures
+        if scoring_failures > 0:
+            run.stage_errors["scoring"] = scoring_failures
         run.news_count = len(news_items)
         run.variants_generated = total_generated
         run.status = "completed"

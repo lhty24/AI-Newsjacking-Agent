@@ -84,22 +84,25 @@ def test_get_news_empty(client):
 
 
 def test_post_run(client, sample_run):
+    """POST /run returns immediately with a running pipeline run."""
     run, variants = sample_run
     with patch("src.api.app.run_pipeline", return_value=(run, variants)):
         resp = client.post("/run")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["run"]["status"] == "completed"
-    assert len(data["top_variants"]) == 1
+    # Returns immediately — status is "running" until background task completes
+    assert data["run"]["trigger"] == "api"
 
 
 def test_post_run_stores_results(client, sample_run):
+    """POST /run creates an entry in _runs that GET /runs can find."""
     run, variants = sample_run
     with patch("src.api.app.run_pipeline", return_value=(run, variants)):
-        client.post("/run")
+        resp = client.post("/run")
+    run_id = resp.json()["run"]["id"]
     resp = client.get("/runs")
     assert len(resp.json()) == 1
-    assert resp.json()[0]["id"] == run.id
+    assert resp.json()[0]["id"] == run_id
 
 
 # --- GET /runs ---
@@ -111,10 +114,10 @@ def test_get_runs_empty(client):
     assert resp.json() == []
 
 
-def test_get_runs_limit(client, sample_variant):
+def test_get_runs_limit(client):
     for i in range(3):
         run = PipelineRun(trigger="api", status="completed")
-        _runs.append(run)
+        _runs[run.id] = run
     resp = client.get("/runs", params={"limit": 2})
     assert resp.status_code == 200
     assert len(resp.json()) == 2
@@ -124,7 +127,9 @@ def test_get_runs_limit(client, sample_variant):
 
 
 def test_post_post_found(client, sample_variant):
-    _variants.append(sample_variant)
+    run = PipelineRun(trigger="api", status="completed")
+    _runs[run.id] = run
+    _variants[run.id] = [sample_variant]
     resp = client.post("/post", json={"variant_id": sample_variant.id})
     assert resp.status_code == 200
     data = resp.json()
@@ -148,7 +153,9 @@ def test_post_batch_all_found(client, sample_variant):
         prompt_template="meme_v1",
         score=7.0,
     )
-    _variants.extend([sample_variant, v2])
+    run = PipelineRun(trigger="api", status="completed")
+    _runs[run.id] = run
+    _variants[run.id] = [sample_variant, v2]
     resp = client.post("/post/batch", json={"variant_ids": [sample_variant.id, v2.id]})
     assert resp.status_code == 200
     results = resp.json()["results"]
@@ -157,7 +164,9 @@ def test_post_batch_all_found(client, sample_variant):
 
 
 def test_post_batch_partial(client, sample_variant):
-    _variants.append(sample_variant)
+    run = PipelineRun(trigger="api", status="completed")
+    _runs[run.id] = run
+    _variants[run.id] = [sample_variant]
     resp = client.post("/post/batch", json={"variant_ids": [sample_variant.id, "bogus-id"]})
     assert resp.status_code == 200
     results = resp.json()["results"]

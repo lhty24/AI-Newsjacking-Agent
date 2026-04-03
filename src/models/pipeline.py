@@ -15,3 +15,7 @@ class PipelineRun(BaseModel):
     variants_generated: int = 0
     variants_posted: int = 0
     error: str | None = None
+    stage_errors: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per-stage failure counts, e.g. {'analysis': 2, 'generation': 1}",
+    )
