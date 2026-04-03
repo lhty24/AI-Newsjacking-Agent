@@ -6,3 +6,4 @@ litellm==1.83.0
 fastapi>=0.115
 uvicorn>=0.34
 streamlit>=1.30
+tweepy>=4.14

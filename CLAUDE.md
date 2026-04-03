@@ -60,6 +60,11 @@ The ingestion layer uses a single API:
 - `LLM_TEMPERATURE` — LLM temperature (default: `0.3`)
 - `LLM_MAX_TOKENS` — Max tokens per LLM response (default: `1024`)
 - `API_BASE_URL` — FastAPI server URL for the Streamlit dashboard (default: `http://localhost:8000`)
+- `TWITTER_ENABLED` — Enable live Twitter posting (default: `false`)
+- `TWITTER_API_KEY` — Twitter/X app API key (consumer key)
+- `TWITTER_API_SECRET` — Twitter/X app API secret (consumer secret)
+- `TWITTER_ACCESS_TOKEN` — Twitter/X user access token
+- `TWITTER_ACCESS_TOKEN_SECRET` — Twitter/X user access token secret
 
 ## Error Handling Pattern
 
