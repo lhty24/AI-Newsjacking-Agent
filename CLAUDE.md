@@ -59,6 +59,7 @@ The ingestion layer uses a single API:
 - `LLM_API_KEY` — API key for the LLM provider (required at runtime)
 - `LLM_TEMPERATURE` — LLM temperature (default: `0.3`)
 - `LLM_MAX_TOKENS` — Max tokens per LLM response (default: `1024`)
+- `API_BASE_URL` — FastAPI server URL for the Streamlit dashboard (default: `http://localhost:8000`)
 
 ## Error Handling Pattern
 

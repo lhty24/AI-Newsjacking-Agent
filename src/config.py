@@ -9,6 +9,9 @@ LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_TEMPERATURE = float(os.environ.get("LLM_TEMPERATURE", "0.3"))
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "1024"))
 
+# API server config (used by Streamlit dashboard)
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+
 
 class ConfigError(Exception):
     """Raised when required configuration is missing or invalid."""
