@@ -3,8 +3,10 @@ import time
 from datetime import datetime, timezone
 
 from src.models.content import ContentVariant
+from src.models.distribution import DistributionRecord
 from src.models.pipeline import PipelineRun
 from src.modules.analysis import analyze_news_batch
+from src.modules.distribution import post_tweet
 from src.modules.generation import generate_variants
 from src.modules.ingestion import fetch_news
 from src.modules.scoring import score_variants, select_top_n
@@ -14,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 def run_pipeline(
     trigger: str = "cli",
-) -> tuple[PipelineRun, list[ContentVariant]]:
+) -> tuple[PipelineRun, list[ContentVariant], list[DistributionRecord]]:
     """Orchestrate the full newsjacking pipeline.
 
-    Returns the PipelineRun record and the top-scoring content variants.
+    Returns the PipelineRun record, top-scoring content variants, and distribution records.
     """
     run = PipelineRun(trigger=trigger)
     logger.info("Pipeline run %s started (trigger: %s)", run.id[:8], trigger)
@@ -36,7 +38,7 @@ def run_pipeline(
             logger.warning("No news articles fetched, ending run early")
             run.status = "completed"
             run.completed_at = datetime.now(timezone.utc)
-            return run, []
+            return run, [], []
 
         # --- Analysis ---
         t0 = time.time()
@@ -54,7 +56,7 @@ def run_pipeline(
             run.news_count = len(news_items)
             run.status = "completed"
             run.completed_at = datetime.now(timezone.utc)
-            return run, []
+            return run, [], []
 
         # --- Generation + Per-analysis Scoring ---
         t0 = time.time()
@@ -99,6 +101,29 @@ def run_pipeline(
             total_generated, len(analyses), len(top_variants), top_score, time.time() - t0,
         )
 
+        # --- Distribution ---
+        t0 = time.time()
+        distribution_records: list[DistributionRecord] = []
+        distribution_failures = 0
+        for variant in top_variants:
+            record = post_tweet(variant)
+            distribution_records.append(record)
+            if record.status == "posted":
+                run.variants_posted += 1
+            elif record.status == "failed":
+                distribution_failures += 1
+            score_str = f"{variant.score:.1f}" if variant.score is not None else "N/A"
+            logger.info(
+                "Distribution: variant %s [%s] score=%s → %s",
+                variant.id[:8], variant.style, score_str, record.status,
+            )
+        if distribution_failures > 0:
+            run.stage_errors["distribution"] = distribution_failures
+        logger.info(
+            "Distribution: %d/%d posted (%.1fs)",
+            run.variants_posted, len(top_variants), time.time() - t0,
+        )
+
         # --- Finalize ---
         if generation_failures > 0:
             run.stage_errors["generation"] = generation_failures
@@ -114,8 +139,8 @@ def run_pipeline(
         run.status = "failed"
         run.error = str(exc)
         run.completed_at = datetime.now(timezone.utc)
-        return run, []
+        return run, [], []
 
     total = time.time() - pipeline_start
     logger.info("Pipeline run %s completed (%.1fs)", run.id[:8], total)
-    return run, top_variants
+    return run, top_variants, distribution_records
