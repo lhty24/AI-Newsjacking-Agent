@@ -40,10 +40,12 @@ Five Pydantic models define the data contracts: `NewsItem`, `AnalysisResult`, `C
 ## API Endpoints (FastAPI)
 
 - `GET /news` — latest ingested news
-- `POST /run` — trigger full pipeline
+- `POST /run` — trigger full pipeline (runs in background, returns immediately)
+- `GET /runs` — list recent pipeline runs
+- `GET /runs/{run_id}` — get a specific run and its variants
+- `GET /variants` — list variants (optional `run_id` filter)
 - `POST /post` — post a specific variant
 - `POST /post/batch` — post multiple variants at once
-- `GET /runs` — list recent pipeline runs
 
 ## News Source
 
