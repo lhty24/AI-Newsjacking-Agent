@@ -375,7 +375,7 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 ### Phase 3: Frontend
 
 - [x] P3-T1: Build Streamlit dashboard
-- [ ] P3-T2: Connect to backend APIs
+- [x] P3-T2: Connect to backend APIs
 
 ### Phase 4: Distribution
 
