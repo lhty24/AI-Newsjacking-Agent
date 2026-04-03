@@ -11,6 +11,7 @@ from src.models.content import ContentVariant
 from src.models.distribution import DistributionRecord
 from src.models.news import NewsItem
 from src.models.pipeline import PipelineRun
+from src.modules.distribution import post_tweet
 from src.modules.ingestion import fetch_news
 from src.pipeline import run_pipeline
 
@@ -40,6 +41,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 # In-memory stores keyed by run ID (cleared on restart, persistence deferred to P6-T3)
 _runs: dict[str, PipelineRun] = {}
 _variants: dict[str, list[ContentVariant]] = {}
+_distributions: dict[str, DistributionRecord] = {}  # keyed by variant_id
 
 
 def _all_variants() -> list[ContentVariant]:
@@ -50,15 +52,18 @@ def _all_variants() -> list[ContentVariant]:
 def _execute_pipeline(run_id: str) -> None:
     """Background task: run the pipeline and update the stored run/variants."""
     try:
-        run, top_variants = run_pipeline(trigger="api")
+        run, top_variants, dist_records = run_pipeline(trigger="api")
         # Copy results into the pre-created run entry
         stored = _runs[run_id]
         stored.status = run.status
         stored.news_count = run.news_count
         stored.variants_generated = run.variants_generated
+        stored.variants_posted = run.variants_posted
         stored.completed_at = run.completed_at
         stored.error = run.error
         _variants[run_id] = top_variants
+        for record in dist_records:
+            _distributions[record.variant_id] = record
     except Exception as exc:
         logger.error("Background pipeline run %s failed: %s", run_id[:8], exc, exc_info=True)
         stored = _runs[run_id]
@@ -122,11 +127,13 @@ class PostRequest(BaseModel):
 
 @app.post("/post")
 def post_variant(req: PostRequest) -> DistributionRecord:
-    """Post a specific content variant (stub until P4 wires up Twitter)."""
+    """Post a specific content variant to Twitter/X."""
     variant = next((v for v in _all_variants() if v.id == req.variant_id), None)
     if variant is None:
         raise HTTPException(status_code=404, detail=f"Variant {req.variant_id} not found")
-    return DistributionRecord(variant_id=req.variant_id, status="pending")
+    record = post_tweet(variant)
+    _distributions[record.variant_id] = record
+    return record
 
 
 class BatchPostRequest(BaseModel):
@@ -140,11 +147,14 @@ class BatchPostResponse(BaseModel):
 @app.post("/post/batch")
 def post_variants_batch(req: BatchPostRequest) -> BatchPostResponse:
     """Post multiple content variants at once. Missing IDs get status='failed'."""
-    known_ids = {v.id for v in _all_variants()}
+    variants_by_id = {v.id: v for v in _all_variants()}
     results: list[DistributionRecord] = []
     for vid in req.variant_ids:
-        if vid in known_ids:
-            results.append(DistributionRecord(variant_id=vid, status="pending"))
+        variant = variants_by_id.get(vid)
+        if variant is not None:
+            record = post_tweet(variant)
+            _distributions[record.variant_id] = record
+            results.append(record)
         else:
             results.append(DistributionRecord(variant_id=vid, status="failed", error=f"Variant {vid} not found"))
     return BatchPostResponse(results=results)

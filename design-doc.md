@@ -380,7 +380,7 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 ### Phase 4: Distribution
 
 - [x] P4-T1: Integrate Twitter API
-- [ ] P4-T2: Enable real posting with DistributionRecord tracking
+- [x] P4-T2: Enable real posting with DistributionRecord tracking
 
 ### Phase 5: Automation
 

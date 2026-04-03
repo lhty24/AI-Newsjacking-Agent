@@ -4,6 +4,7 @@ import pytest
 
 from src.models.analysis import AnalysisResult
 from src.models.content import ContentVariant
+from src.models.distribution import DistributionRecord
 from src.models.news import NewsItem
 from src.pipeline import run_pipeline
 
@@ -88,13 +89,14 @@ MODULE = "src.pipeline"
 
 
 class TestRunPipelineHappyPath:
+    @patch(f"{MODULE}.post_tweet")
     @patch(f"{MODULE}.select_top_n")
     @patch(f"{MODULE}.score_variants")
     @patch(f"{MODULE}.generate_variants")
     @patch(f"{MODULE}.analyze_news_batch")
     @patch(f"{MODULE}.fetch_news")
     def test_full_pipeline(
-        self, mock_fetch, mock_analyze, mock_generate, mock_score, mock_top,
+        self, mock_fetch, mock_analyze, mock_generate, mock_score, mock_top, mock_post,
         sample_news_items, sample_analyses, sample_variants,
     ):
         mock_fetch.return_value = sample_news_items
@@ -111,22 +113,29 @@ class TestRunPipelineHappyPath:
             [sample_variants[0]],  # best from first analysis
             [sample_variants[2]],  # best from second analysis
         ]
+        mock_post.side_effect = lambda v: DistributionRecord(
+            variant_id=v.id, status="posted", platform_post_id="tweet-123",
+        )
 
-        run, top = run_pipeline(trigger="cli")
+        run, top, dist_records = run_pipeline(trigger="cli")
 
         assert run.status == "completed"
         assert run.trigger == "cli"
         assert run.news_count == 2
         assert run.variants_generated == 3
+        assert run.variants_posted == 2
         assert run.completed_at is not None
         assert run.error is None
         assert len(top) == 2  # one best per analysis
+        assert len(dist_records) == 2
+        assert all(r.status == "posted" for r in dist_records)
 
         mock_fetch.assert_called_once()
         mock_analyze.assert_called_once_with(sample_news_items)
         assert mock_generate.call_count == 2
         assert mock_score.call_count == 2  # once per analysis
         assert mock_top.call_count == 2  # once per analysis
+        assert mock_post.call_count == 2  # once per top variant
 
 
 class TestRunPipelineEarlyReturn:
@@ -135,11 +144,12 @@ class TestRunPipelineEarlyReturn:
     def test_zero_news_returns_early(self, mock_fetch, mock_analyze):
         mock_fetch.return_value = []
 
-        run, top = run_pipeline()
+        run, top, dist_records = run_pipeline()
 
         assert run.status == "completed"
         assert run.news_count == 0
         assert top == []
+        assert dist_records == []
         mock_analyze.assert_not_called()
 
     @patch(f"{MODULE}.generate_variants")
@@ -151,36 +161,69 @@ class TestRunPipelineEarlyReturn:
         mock_fetch.return_value = sample_news_items
         mock_analyze.return_value = []
 
-        run, top = run_pipeline()
+        run, top, dist_records = run_pipeline()
 
         assert run.status == "completed"
         assert run.news_count == 2
         assert top == []
+        assert dist_records == []
         mock_generate.assert_not_called()
 
 
 class TestRunPipelineGracefulDegradation:
+    @patch(f"{MODULE}.post_tweet")
     @patch(f"{MODULE}.select_top_n")
     @patch(f"{MODULE}.score_variants")
     @patch(f"{MODULE}.generate_variants")
     @patch(f"{MODULE}.analyze_news_batch")
     @patch(f"{MODULE}.fetch_news")
     def test_scoring_failure_falls_back(
-        self, mock_fetch, mock_analyze, mock_generate, mock_score, mock_top,
+        self, mock_fetch, mock_analyze, mock_generate, mock_score, mock_top, mock_post,
         sample_news_items, sample_analyses, sample_variants,
     ):
         mock_fetch.return_value = sample_news_items
         mock_analyze.return_value = sample_analyses
         mock_generate.side_effect = [sample_variants[:2], sample_variants[2:]]
         mock_score.side_effect = RuntimeError("LLM unavailable")
+        mock_post.side_effect = lambda v: DistributionRecord(
+            variant_id=v.id, status="pending", error="Twitter disabled",
+        )
 
-        run, top = run_pipeline()
+        run, top, dist_records = run_pipeline()
 
         assert run.status == "completed"
         assert run.variants_generated == 3
         # Falls back to first variant per analysis
         assert len(top) == 2
+        assert len(dist_records) == 2
         mock_top.assert_not_called()
+
+    @patch(f"{MODULE}.post_tweet")
+    @patch(f"{MODULE}.select_top_n")
+    @patch(f"{MODULE}.score_variants")
+    @patch(f"{MODULE}.generate_variants")
+    @patch(f"{MODULE}.analyze_news_batch")
+    @patch(f"{MODULE}.fetch_news")
+    def test_distribution_failure_does_not_halt(
+        self, mock_fetch, mock_analyze, mock_generate, mock_score, mock_top, mock_post,
+        sample_news_items, sample_analyses, sample_variants,
+    ):
+        mock_fetch.return_value = sample_news_items
+        mock_analyze.return_value = sample_analyses
+        mock_generate.side_effect = [sample_variants[:2], sample_variants[2:]]
+        mock_score.side_effect = [sample_variants[:2], sample_variants[2:]]
+        mock_top.side_effect = [[sample_variants[0]], [sample_variants[2]]]
+        mock_post.side_effect = lambda v: DistributionRecord(
+            variant_id=v.id, status="failed", error="Auth failed",
+        )
+
+        run, top, dist_records = run_pipeline()
+
+        assert run.status == "completed"
+        assert run.variants_posted == 0
+        assert run.stage_errors.get("distribution") == 2
+        assert len(dist_records) == 2
+        assert all(r.status == "failed" for r in dist_records)
 
 
 class TestRunPipelineFailure:
@@ -188,9 +231,10 @@ class TestRunPipelineFailure:
     def test_unhandled_error_sets_failed(self, mock_fetch):
         mock_fetch.side_effect = RuntimeError("Network down")
 
-        run, top = run_pipeline()
+        run, top, dist_records = run_pipeline()
 
         assert run.status == "failed"
         assert "Network down" in run.error
         assert run.completed_at is not None
         assert top == []
+        assert dist_records == []

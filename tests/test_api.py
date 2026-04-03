@@ -3,8 +3,9 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.app import app, _runs, _variants
+from src.api.app import app, _runs, _variants, _distributions
 from src.models.content import ContentVariant
+from src.models.distribution import DistributionRecord
 from src.models.news import NewsItem
 from src.models.pipeline import PipelineRun
 
@@ -14,9 +15,11 @@ def clear_stores():
     """Reset in-memory stores between tests."""
     _runs.clear()
     _variants.clear()
+    _distributions.clear()
     yield
     _runs.clear()
     _variants.clear()
+    _distributions.clear()
 
 
 @pytest.fixture
@@ -86,7 +89,7 @@ def test_get_news_empty(client):
 def test_post_run(client, sample_run):
     """POST /run returns immediately with a running pipeline run."""
     run, variants = sample_run
-    with patch("src.api.app.run_pipeline", return_value=(run, variants)):
+    with patch("src.api.app.run_pipeline", return_value=(run, variants, [])):
         resp = client.post("/run")
     assert resp.status_code == 200
     data = resp.json()
@@ -97,7 +100,7 @@ def test_post_run(client, sample_run):
 def test_post_run_stores_results(client, sample_run):
     """POST /run creates an entry in _runs that GET /runs can find."""
     run, variants = sample_run
-    with patch("src.api.app.run_pipeline", return_value=(run, variants)):
+    with patch("src.api.app.run_pipeline", return_value=(run, variants, [])):
         resp = client.post("/run")
     run_id = resp.json()["run"]["id"]
     resp = client.get("/runs")
@@ -130,11 +133,17 @@ def test_post_post_found(client, sample_variant):
     run = PipelineRun(trigger="api", status="completed")
     _runs[run.id] = run
     _variants[run.id] = [sample_variant]
-    resp = client.post("/post", json={"variant_id": sample_variant.id})
+    mock_record = DistributionRecord(
+        variant_id=sample_variant.id, status="posted", platform_post_id="tweet-999",
+    )
+    with patch("src.api.app.post_tweet", return_value=mock_record):
+        resp = client.post("/post", json={"variant_id": sample_variant.id})
     assert resp.status_code == 200
     data = resp.json()
     assert data["variant_id"] == sample_variant.id
-    assert data["status"] == "pending"
+    assert data["status"] == "posted"
+    assert data["platform_post_id"] == "tweet-999"
+    assert sample_variant.id in _distributions
 
 
 def test_post_post_not_found(client):
@@ -156,22 +165,26 @@ def test_post_batch_all_found(client, sample_variant):
     run = PipelineRun(trigger="api", status="completed")
     _runs[run.id] = run
     _variants[run.id] = [sample_variant, v2]
-    resp = client.post("/post/batch", json={"variant_ids": [sample_variant.id, v2.id]})
+    mock_post = lambda v: DistributionRecord(variant_id=v.id, status="posted", platform_post_id="t-1")
+    with patch("src.api.app.post_tweet", side_effect=mock_post):
+        resp = client.post("/post/batch", json={"variant_ids": [sample_variant.id, v2.id]})
     assert resp.status_code == 200
     results = resp.json()["results"]
     assert len(results) == 2
-    assert all(r["status"] == "pending" for r in results)
+    assert all(r["status"] == "posted" for r in results)
 
 
 def test_post_batch_partial(client, sample_variant):
     run = PipelineRun(trigger="api", status="completed")
     _runs[run.id] = run
     _variants[run.id] = [sample_variant]
-    resp = client.post("/post/batch", json={"variant_ids": [sample_variant.id, "bogus-id"]})
+    mock_post = lambda v: DistributionRecord(variant_id=v.id, status="posted", platform_post_id="t-1")
+    with patch("src.api.app.post_tweet", side_effect=mock_post):
+        resp = client.post("/post/batch", json={"variant_ids": [sample_variant.id, "bogus-id"]})
     assert resp.status_code == 200
     results = resp.json()["results"]
     assert len(results) == 2
-    assert results[0]["status"] == "pending"
+    assert results[0]["status"] == "posted"
     assert results[1]["status"] == "failed"
     assert "not found" in results[1]["error"]
 

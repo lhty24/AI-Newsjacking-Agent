@@ -13,7 +13,7 @@ class TestCLIMain:
     @patch(f"{MODULE}.validate_config")
     def test_main_calls_pipeline(self, mock_validate, mock_run):
         run = PipelineRun(trigger="cli", status="completed", news_count=2, variants_generated=3)
-        mock_run.return_value = (run, [])
+        mock_run.return_value = (run, [], [])
 
         exit_code = main()
 
@@ -25,7 +25,7 @@ class TestCLIMain:
     @patch(f"{MODULE}.validate_config")
     def test_main_returns_1_on_failure(self, mock_validate, mock_run):
         run = PipelineRun(trigger="cli", status="failed", error="boom")
-        mock_run.return_value = (run, [])
+        mock_run.return_value = (run, [], [])
 
         exit_code = main()
 

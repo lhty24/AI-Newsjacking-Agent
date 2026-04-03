@@ -7,6 +7,7 @@ import pytest
 
 from src.config import ConfigError, validate_config
 from src.models.analysis import AnalysisResult
+from src.models.distribution import DistributionRecord
 from src.models.news import NewsItem
 from src.modules.analysis import analyze_news, analyze_news_batch
 from src.modules.generation import generate_variants
@@ -161,11 +162,12 @@ def test_score_variants_returns_unscored_on_failure(mock_llm, sample_analysis):
 # --- Pipeline partial-failure tracking ---
 
 
+@patch("src.pipeline.post_tweet")
 @patch("src.pipeline.score_variants")
 @patch("src.pipeline.generate_variants")
 @patch("src.pipeline.analyze_news_batch")
 @patch("src.pipeline.fetch_news")
-def test_pipeline_tracks_stage_errors(mock_fetch, mock_analyze, mock_generate, mock_score):
+def test_pipeline_tracks_stage_errors(mock_fetch, mock_analyze, mock_generate, mock_score, mock_post):
     """Pipeline records per-stage failure counts in stage_errors."""
     from src.models.content import ContentVariant
     from src.pipeline import run_pipeline
@@ -219,8 +221,11 @@ def test_pipeline_tracks_stage_errors(mock_fetch, mock_analyze, mock_generate, m
     for v in variants:
         v.score = 7.5
     mock_score.return_value = variants
+    mock_post.side_effect = lambda v: DistributionRecord(
+        variant_id=v.id, status="pending", error="Twitter disabled",
+    )
 
-    run, top = run_pipeline(trigger="cli")
+    run, top, dist_records = run_pipeline(trigger="cli")
 
     assert run.status == "completed"
     assert run.stage_errors.get("analysis") == 1  # 1 of 2 failed
