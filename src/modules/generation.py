@@ -2,7 +2,12 @@ import json
 import logging
 
 import litellm
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    before_sleep_log,
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from src.config import LLM_API_KEY, LLM_MAX_TOKENS, LLM_MODEL
 from src.models.analysis import AnalysisResult
@@ -55,7 +60,11 @@ def _build_generation_prompt(analysis: AnalysisResult) -> str:
     )
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(min=1, max=30),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+)
 def _call_llm_with_temperature(
     system_prompt: str, user_prompt: str, temperature: float
 ) -> str:

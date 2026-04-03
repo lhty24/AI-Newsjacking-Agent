@@ -2,7 +2,12 @@ import json
 import logging
 
 import litellm
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    before_sleep_log,
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from src.config import LLM_API_KEY, LLM_MAX_TOKENS, LLM_MODEL, LLM_TEMPERATURE
 from src.models.content import ContentVariant
@@ -45,7 +50,11 @@ def _build_user_prompt(variants: list[ContentVariant]) -> str:
     return "\n".join(lines)
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(min=1, max=30),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+)
 def _call_llm(system_prompt: str, user_prompt: str) -> str:
     """Call LLM via litellm with retry. Returns raw response string."""
     response = litellm.completion(

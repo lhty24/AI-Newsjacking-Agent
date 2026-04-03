@@ -3,11 +3,24 @@ import re
 import unicodedata
 
 import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from src.models.news import NewsItem
 
 logger = logging.getLogger(__name__)
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    """Check if an exception is a rate-limit (429) error."""
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+        return True
+    return False
 
 COINGECKO_NEWS_URL = "https://api.coingecko.com/api/v3/news"
 
@@ -108,7 +121,12 @@ def _deduplicate(items: list[dict]) -> list[dict]:
     return unique
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(min=1, max=30),
+    retry=retry_if_exception(lambda e: True),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+)
 def _call_coingecko() -> list[dict]:
     """Fetch raw news data from CoinGecko with retry."""
     with httpx.Client(timeout=httpx.Timeout(10, read=30)) as client:
