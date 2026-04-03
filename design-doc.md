@@ -369,7 +369,7 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 ### Phase 2: API Layer
 
 - [x] P2-T1: Add FastAPI endpoints
-- [ ] P2-T2: Integrate pipeline with API
+- [x] P2-T2: Integrate pipeline with API
 - [ ] P2-T3: Add error handling (retries, graceful degradation)
 
 ### Phase 3: Frontend
