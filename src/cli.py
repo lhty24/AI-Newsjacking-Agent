@@ -1,3 +1,4 @@
+import argparse
 import logging
 import sys
 
@@ -7,6 +8,16 @@ from src.pipeline import run_pipeline
 
 def main() -> int:
     """Run the newsjacking pipeline from the command line."""
+    parser = argparse.ArgumentParser(description="AI Newsjacking Agent")
+    parser.add_argument(
+        "--max-articles",
+        type=int,
+        choices=[1, 3, 5, 10],
+        default=3,
+        help="Number of articles to process (default: 3)",
+    )
+    args = parser.parse_args()
+
     logging.basicConfig(
         level=logging.INFO,
         format="[%(asctime)s] %(message)s",
@@ -22,7 +33,7 @@ def main() -> int:
         logging.error("%s", e)
         return 1
 
-    run, top_variants, dist_records = run_pipeline(trigger="cli")
+    run, top_variants, dist_records = run_pipeline(trigger="cli", max_articles=args.max_articles)
 
     if run.status == "failed":
         return 1

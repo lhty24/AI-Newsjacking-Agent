@@ -49,10 +49,10 @@ def _all_variants() -> list[ContentVariant]:
     return [v for vs in _variants.values() for v in vs]
 
 
-def _execute_pipeline(run_id: str) -> None:
+def _execute_pipeline(run_id: str, max_articles: int = 3) -> None:
     """Background task: run the pipeline and update the stored run/variants."""
     try:
-        run, top_variants, dist_records = run_pipeline(trigger="api")
+        run, top_variants, dist_records = run_pipeline(trigger="api", max_articles=max_articles)
         # Copy results into the pre-created run entry
         stored = _runs[run_id]
         stored.status = run.status
@@ -81,18 +81,22 @@ def get_news() -> list[NewsItem]:
     return fetch_news()
 
 
+class RunRequest(BaseModel):
+    max_articles: int = 3
+
+
 class RunResponse(BaseModel):
     run: PipelineRun
     top_variants: list[ContentVariant]
 
 
 @app.post("/run")
-def post_run(background_tasks: BackgroundTasks) -> RunResponse:
+def post_run(background_tasks: BackgroundTasks, body: RunRequest = RunRequest()) -> RunResponse:
     """Trigger a full pipeline run (executes in the background)."""
     run = PipelineRun(trigger="api")
     _runs[run.id] = run
     _variants[run.id] = []
-    background_tasks.add_task(_execute_pipeline, run.id)
+    background_tasks.add_task(_execute_pipeline, run.id, body.max_articles)
     return RunResponse(run=run, top_variants=[])
 
 

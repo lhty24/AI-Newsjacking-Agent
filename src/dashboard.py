@@ -218,9 +218,10 @@ def main():
 
         st.divider()
         st.header("Actions")
+        article_count = st.selectbox("Articles to process", [1, 3, 5, 10], index=1)
         if st.button("🚀 Run Pipeline", use_container_width=True):
             with st.spinner("Triggering pipeline..."):
-                result = api_post("/run")
+                result = api_post("/run", json={"max_articles": article_count})
                 if result:
                     st.success(f"Pipeline started: {result['run']['id'][:8]}")
                     st.rerun()
