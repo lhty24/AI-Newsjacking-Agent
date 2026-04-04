@@ -130,7 +130,7 @@ class TestRunPipelineHappyPath:
         assert len(dist_records) == 2
         assert all(r.status == "posted" for r in dist_records)
 
-        mock_fetch.assert_called_once()
+        mock_fetch.assert_called_once_with(max_items=10)
         mock_analyze.assert_called_once_with(sample_news_items)
         assert mock_generate.call_count == 2
         assert mock_score.call_count == 2  # once per analysis

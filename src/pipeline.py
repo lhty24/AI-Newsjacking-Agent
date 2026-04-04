@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 def run_pipeline(
     trigger: str = "cli",
+    max_articles: int = 10,
 ) -> tuple[PipelineRun, list[ContentVariant], list[DistributionRecord]]:
     """Orchestrate the full newsjacking pipeline.
 
@@ -28,7 +29,7 @@ def run_pipeline(
     try:
         # --- Ingestion ---
         t0 = time.time()
-        news_items = fetch_news()
+        news_items = fetch_news(max_items=max_articles)
         logger.info("Ingestion: fetched %d articles (%.1fs)", len(news_items), time.time() - t0)
         for i, item in enumerate(news_items, 1):
             tickers_str = ", ".join(item.tickers) if item.tickers else "none"
