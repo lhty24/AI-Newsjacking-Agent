@@ -1,4 +1,4 @@
-# AI Newsjacking Trading Agent
+# AI Newsjacking Agent
 
 ## 1. Project Scope
 

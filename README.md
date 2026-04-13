@@ -3,6 +3,7 @@
 An AI-native growth engine for the crypto market. This system autonomously detects breaking crypto news, runs it through LLM-powered sentiment and signal analysis, generates multiple content variants in distinct styles — analytical, meme, and contrarian — scores them using an LLM-as-judge rubric, and distributes the top-performing picks to Twitter/X. The entire pipeline is designed as a modular, end-to-end automation that turns real-time market events into high-converting social content without manual intervention.
 
 ![AI Newsjacking Agent](assets/AI-native-growth-engine.png)
+![UI-Sample](assets/UI-Sample.png)
 
 ## Architecture
 
@@ -12,24 +13,24 @@ The system follows a five-stage pipeline, orchestrated by a single `run_pipeline
 News Ingestion → Analysis → Content Generation → LLM-as-Judge Scoring → Distribution
 ```
 
-| Stage | Function | Description |
-|-------|----------|-------------|
-| **Ingestion** | `fetch_news()` | Fetch crypto news from CoinGecko API, filter and deduplicate |
-| **Analysis** | `analyze_news()` | LLM-based sentiment, topic, and trading signal extraction |
-| **Generation** | `generate_variants()` | Multi-style tweet generation (analytical, meme, contrarian) with per-style temperature control |
-| **Scoring** | `score_variants()` | Weighted rubric — Hook Strength 30%, Clarity 25%, Engagement 25%, Relevance 20% |
-| **Distribution** | `post_tweet()` | Post to Twitter/X, track outcomes in DistributionRecord |
+| Stage            | Function              | Description                                                                                    |
+| ---------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
+| **Ingestion**    | `fetch_news()`        | Fetch crypto news from CoinGecko API, filter and deduplicate                                   |
+| **Analysis**     | `analyze_news()`      | LLM-based sentiment, topic, and trading signal extraction                                      |
+| **Generation**   | `generate_variants()` | Multi-style tweet generation (analytical, meme, contrarian) with per-style temperature control |
+| **Scoring**      | `score_variants()`    | Weighted rubric — Hook Strength 30%, Clarity 25%, Engagement 25%, Relevance 20%                |
+| **Distribution** | `post_tweet()`        | Post to Twitter/X, track outcomes in DistributionRecord                                        |
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Backend | Python, FastAPI, APScheduler |
-| AI/ML | OpenAI / Claude via LiteLLM (direct prompting, no RAG) |
-| Data | Pydantic models (in-memory, optional JSON/SQLite persistence) |
-| Frontend | Streamlit |
-| Distribution | Twitter/X via Tweepy |
-| Resilience | tenacity for retry with exponential backoff |
+| Layer        | Technology                                                    |
+| ------------ | ------------------------------------------------------------- |
+| Backend      | Python, FastAPI, APScheduler                                  |
+| AI/ML        | OpenAI / Claude via LiteLLM (direct prompting, no RAG)        |
+| Data         | Pydantic models (in-memory, optional JSON/SQLite persistence) |
+| Frontend     | Streamlit                                                     |
+| Distribution | Twitter/X via Tweepy                                          |
+| Resilience   | tenacity for retry with exponential backoff                   |
 
 ## Project Structure
 
@@ -71,12 +72,12 @@ export LLM_API_KEY="your-api-key-here"
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `LLM_MODEL` | LiteLLM model identifier | `gpt-4o-mini` |
-| `LLM_API_KEY` | API key for the LLM provider | *(required)* |
-| `LLM_TEMPERATURE` | LLM temperature for analysis | `0.3` |
-| `LLM_MAX_TOKENS` | Max tokens per LLM response | `1024` |
+| Variable          | Description                  | Default       |
+| ----------------- | ---------------------------- | ------------- |
+| `LLM_MODEL`       | LiteLLM model identifier     | `gpt-4o-mini` |
+| `LLM_API_KEY`     | API key for the LLM provider | _(required)_  |
+| `LLM_TEMPERATURE` | LLM temperature for analysis | `0.3`         |
+| `LLM_MAX_TOKENS`  | Max tokens per LLM response  | `1024`        |
 
 ## License
 
