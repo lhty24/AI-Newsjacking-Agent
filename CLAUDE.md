@@ -46,6 +46,11 @@ Five Pydantic models define the data contracts: `NewsItem`, `AnalysisResult`, `C
 - `GET /variants` — list variants (optional `run_id` filter)
 - `POST /post` — post a specific variant
 - `POST /post/batch` — post multiple variants at once
+- `GET /scheduler/status` — scheduler state (running, interval, next run)
+- `POST /scheduler/start` — start the scheduler
+- `POST /scheduler/stop` — stop the scheduler
+- `POST /scheduler/interval` — update interval (`{"interval_hours": N}`, choices: 1, 3, 8, 12, 24)
+- `POST /scheduler/max-articles` — update articles per run (`{"max_articles": N}`, choices: 1, 3, 5, 10)
 
 ## News Source
 
@@ -65,6 +70,8 @@ The ingestion layer uses a single API:
 - `TWITTER_API_SECRET` — Twitter/X app API secret (consumer secret)
 - `TWITTER_ACCESS_TOKEN` — Twitter/X user access token
 - `TWITTER_ACCESS_TOKEN_SECRET` — Twitter/X user access token secret
+- `SCHEDULER_ENABLED` — Auto-start scheduler on server boot (default: `false`)
+- `SCHEDULER_INTERVAL_HOURS` — Scheduler interval in hours (default: `12`, choices: 1, 3, 8, 12, 24)
 
 ## Error Handling Pattern
 

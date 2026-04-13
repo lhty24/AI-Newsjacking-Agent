@@ -384,7 +384,7 @@ Use Python's built-in `logging` module. No external log aggregation for MVP.
 
 ### Phase 5: Automation
 
-- [ ] P5-T1: Add scheduler for periodic execution
+- [x] P5-T1: Add scheduler for periodic execution
 
 ### Phase 6: Refinement
 

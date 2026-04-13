@@ -6,7 +6,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.config import validate_config
+from src.config import SCHEDULER_ENABLED, SCHEDULER_INTERVAL_HOURS, validate_config
 from src.models.content import ContentVariant
 from src.models.distribution import DistributionRecord
 from src.models.news import NewsItem
@@ -14,16 +14,41 @@ from src.models.pipeline import PipelineRun
 from src.modules.distribution import post_tweet
 from src.modules.ingestion import fetch_news
 from src.pipeline import run_pipeline
+from src.scheduler import (
+    ALLOWED_ARTICLE_COUNTS,
+    ALLOWED_INTERVALS,
+    get_scheduler_status,
+    init_scheduler,
+    shutdown_scheduler,
+    start_scheduler,
+    stop_scheduler,
+    update_interval,
+    update_max_articles,
+)
 
 logger = logging.getLogger(__name__)
 
 
+def _scheduler_pipeline_callback() -> None:
+    """Callback invoked by APScheduler to run the pipeline."""
+    status = get_scheduler_status()
+    run = PipelineRun(trigger="scheduler")
+    _runs[run.id] = run
+    _variants[run.id] = []
+    _execute_pipeline(run.id, max_articles=status["max_articles"], trigger="scheduler")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Validate configuration on startup."""
+    """Validate configuration and initialize scheduler on startup."""
     validate_config()
     logger.info("Configuration validated, starting API server")
+    init_scheduler(_scheduler_pipeline_callback, SCHEDULER_INTERVAL_HOURS)
+    if SCHEDULER_ENABLED:
+        start_scheduler()
+        logger.info("Scheduler auto-started (interval: %dh)", SCHEDULER_INTERVAL_HOURS)
     yield
+    shutdown_scheduler()
 
 
 app = FastAPI(title="AI Newsjacking Agent", lifespan=lifespan)
@@ -49,10 +74,10 @@ def _all_variants() -> list[ContentVariant]:
     return [v for vs in _variants.values() for v in vs]
 
 
-def _execute_pipeline(run_id: str, max_articles: int = 3) -> None:
+def _execute_pipeline(run_id: str, max_articles: int = 3, trigger: str = "api") -> None:
     """Background task: run the pipeline and update the stored run/variants."""
     try:
-        run, top_variants, dist_records = run_pipeline(trigger="api", max_articles=max_articles)
+        run, top_variants, dist_records = run_pipeline(trigger=trigger, max_articles=max_articles)
         # Copy results into the pre-created run entry
         stored = _runs[run_id]
         stored.status = run.status
@@ -162,3 +187,65 @@ def post_variants_batch(req: BatchPostRequest) -> BatchPostResponse:
         else:
             results.append(DistributionRecord(variant_id=vid, status="failed", error=f"Variant {vid} not found"))
     return BatchPostResponse(results=results)
+
+
+# --- Scheduler Endpoints ---
+
+
+class SchedulerStatus(BaseModel):
+    running: bool
+    interval_hours: int
+    max_articles: int
+    next_run_time: str | None
+
+
+class IntervalRequest(BaseModel):
+    interval_hours: int
+
+
+@app.get("/scheduler/status")
+def get_scheduler() -> SchedulerStatus:
+    """Return current scheduler state."""
+    return SchedulerStatus(**get_scheduler_status())
+
+
+@app.post("/scheduler/start")
+def post_scheduler_start() -> SchedulerStatus:
+    """Start the scheduler."""
+    start_scheduler()
+    return SchedulerStatus(**get_scheduler_status())
+
+
+@app.post("/scheduler/stop")
+def post_scheduler_stop() -> SchedulerStatus:
+    """Stop the scheduler."""
+    stop_scheduler()
+    return SchedulerStatus(**get_scheduler_status())
+
+
+class MaxArticlesRequest(BaseModel):
+    max_articles: int
+
+
+@app.post("/scheduler/max-articles")
+def post_scheduler_max_articles(req: MaxArticlesRequest) -> SchedulerStatus:
+    """Update the number of articles the scheduler processes per run."""
+    if req.max_articles not in ALLOWED_ARTICLE_COUNTS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"max_articles must be one of {ALLOWED_ARTICLE_COUNTS}",
+        )
+    update_max_articles(req.max_articles)
+    return SchedulerStatus(**get_scheduler_status())
+
+
+@app.post("/scheduler/interval")
+def post_scheduler_interval(req: IntervalRequest) -> SchedulerStatus:
+    """Update the scheduler interval. Must be one of [1, 3, 8, 12, 24]."""
+    if req.interval_hours not in ALLOWED_INTERVALS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"interval_hours must be one of {ALLOWED_INTERVALS}",
+        )
+    update_interval(req.interval_hours)
+    return SchedulerStatus(**get_scheduler_status())

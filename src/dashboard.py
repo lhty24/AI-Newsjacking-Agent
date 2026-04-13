@@ -226,6 +226,55 @@ def main():
                     st.success(f"Pipeline started: {result['run']['id'][:8]}")
                     st.rerun()
 
+        # --- Scheduler Controls ---
+        st.divider()
+        st.header("Scheduler")
+
+        sched_status = api_get("/scheduler/status")
+        if sched_status:
+            article_options = [1, 3, 5, 10]
+            current_articles = sched_status.get("max_articles", 3)
+            articles_idx = article_options.index(current_articles) if current_articles in article_options else 1
+
+            sched_articles = st.selectbox(
+                "Articles to process",
+                article_options,
+                index=articles_idx,
+                key="sched_articles",
+            )
+
+            if sched_articles != current_articles:
+                api_post("/scheduler/max-articles", json={"max_articles": sched_articles})
+                st.rerun()
+
+            interval_options = [1, 3, 8, 12, 24]
+            current_interval = sched_status.get("interval_hours", 12)
+            current_idx = interval_options.index(current_interval) if current_interval in interval_options else 3
+
+            interval = st.selectbox(
+                "Run every (hours)",
+                interval_options,
+                index=current_idx,
+                format_func=lambda h: f"{h}h",
+            )
+
+            if interval != current_interval:
+                api_post("/scheduler/interval", json={"interval_hours": interval})
+                st.rerun()
+
+            if sched_status["running"]:
+                if st.button("⏹ Stop Scheduler", use_container_width=True):
+                    api_post("/scheduler/stop")
+                    st.rerun()
+                next_run = sched_status.get("next_run_time", "")
+                if next_run:
+                    st.caption(f"Next run: {next_run[:19]}")
+            else:
+                if st.button("▶ Start Scheduler", use_container_width=True):
+                    api_post("/scheduler/start")
+                    st.rerun()
+                st.caption("Scheduler stopped")
+
     # Route to selected page
     pages = {
         "Dashboard": page_dashboard,
