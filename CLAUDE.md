@@ -40,7 +40,7 @@ Five Pydantic models define the data contracts: `NewsItem`, `AnalysisResult`, `C
 ## API Endpoints (FastAPI)
 
 - `GET /news` — latest ingested news
-- `POST /run` — trigger full pipeline (runs in background, returns immediately). Accepts optional JSON body: `{"max_articles": 3}` (choices: 1, 3, 5, 10)
+- `POST /run` — trigger full pipeline (runs in background, returns immediately). Accepts optional JSON body: `{"max_articles": 3, "max_chars": 280}` (articles: 1, 3, 5, 10; chars: 280, 500, 1000, 2500, 5000, 10000, 25000)
 - `GET /runs` — list recent pipeline runs
 - `GET /runs/{run_id}` — get a specific run and its variants
 - `GET /variants` — list variants (optional `run_id` filter)
@@ -51,6 +51,7 @@ Five Pydantic models define the data contracts: `NewsItem`, `AnalysisResult`, `C
 - `POST /scheduler/stop` — stop the scheduler
 - `POST /scheduler/interval` — update interval (`{"interval_hours": N}`, choices: 1, 3, 8, 12, 24)
 - `POST /scheduler/max-articles` — update articles per run (`{"max_articles": N}`, choices: 1, 3, 5, 10)
+- `POST /scheduler/max-chars` — update max chars per tweet (`{"max_chars": N}`, choices: 280, 500, 1000, 2500, 5000, 10000, 25000)
 
 ## News Source
 

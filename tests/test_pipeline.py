@@ -113,7 +113,7 @@ class TestRunPipelineHappyPath:
             [sample_variants[0]],  # best from first analysis
             [sample_variants[2]],  # best from second analysis
         ]
-        mock_post.side_effect = lambda v: DistributionRecord(
+        mock_post.side_effect = lambda v, **kw: DistributionRecord(
             variant_id=v.id, status="posted", platform_post_id="tweet-123",
         )
 
@@ -185,7 +185,7 @@ class TestRunPipelineGracefulDegradation:
         mock_analyze.return_value = sample_analyses
         mock_generate.side_effect = [sample_variants[:2], sample_variants[2:]]
         mock_score.side_effect = RuntimeError("LLM unavailable")
-        mock_post.side_effect = lambda v: DistributionRecord(
+        mock_post.side_effect = lambda v, **kw: DistributionRecord(
             variant_id=v.id, status="pending", error="Twitter disabled",
         )
 
@@ -213,7 +213,7 @@ class TestRunPipelineGracefulDegradation:
         mock_generate.side_effect = [sample_variants[:2], sample_variants[2:]]
         mock_score.side_effect = [sample_variants[:2], sample_variants[2:]]
         mock_top.side_effect = [[sample_variants[0]], [sample_variants[2]]]
-        mock_post.side_effect = lambda v: DistributionRecord(
+        mock_post.side_effect = lambda v, **kw: DistributionRecord(
             variant_id=v.id, status="failed", error="Auth failed",
         )
 

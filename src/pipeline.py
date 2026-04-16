@@ -17,12 +17,13 @@ logger = logging.getLogger(__name__)
 def run_pipeline(
     trigger: str = "cli",
     max_articles: int = 10,
+    max_chars: int = 280,
 ) -> tuple[PipelineRun, list[ContentVariant], list[DistributionRecord]]:
     """Orchestrate the full newsjacking pipeline.
 
     Returns the PipelineRun record, top-scoring content variants, and distribution records.
     """
-    run = PipelineRun(trigger=trigger)
+    run = PipelineRun(trigger=trigger, max_chars=max_chars)
     logger.info("Pipeline run %s started (trigger: %s)", run.id[:8], trigger)
     pipeline_start = time.time()
 
@@ -71,7 +72,7 @@ def run_pipeline(
             logger.info("--- Article %d/%d: \"%s\" ---", idx, len(analyses), title)
             logger.info("  Analysis: %s | topics=%s | signal=%s", analysis.sentiment, analysis.topics, analysis.signal)
 
-            variants = generate_variants(analysis)
+            variants = generate_variants(analysis, max_chars=max_chars)
             total_generated += len(variants)
             # Track generation failures (expected 3 styles per analysis)
             expected_styles = 3
@@ -107,7 +108,7 @@ def run_pipeline(
         distribution_records: list[DistributionRecord] = []
         distribution_failures = 0
         for variant in top_variants:
-            record = post_tweet(variant)
+            record = post_tweet(variant, max_chars=max_chars)
             distribution_records.append(record)
             if record.status == "posted":
                 run.variants_posted += 1

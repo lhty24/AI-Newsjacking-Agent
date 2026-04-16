@@ -22,8 +22,6 @@ from src.models.distribution import DistributionRecord
 
 logger = logging.getLogger(__name__)
 
-TWITTER_CHAR_LIMIT = 280
-
 _twitter_client: tweepy.Client | None = None
 
 
@@ -61,7 +59,7 @@ def _create_tweet(client: tweepy.Client, text: str) -> tweepy.Response:
     return client.create_tweet(text=text)
 
 
-def post_tweet(variant: ContentVariant) -> DistributionRecord:
+def post_tweet(variant: ContentVariant, max_chars: int = 280) -> DistributionRecord:
     """Post a content variant to Twitter/X.
 
     Returns a DistributionRecord with the outcome. When Twitter is disabled,
@@ -75,12 +73,12 @@ def post_tweet(variant: ContentVariant) -> DistributionRecord:
             error="Twitter disabled",
         )
 
-    if len(variant.text) > TWITTER_CHAR_LIMIT:
+    if len(variant.text) > max_chars:
         logger.warning(
-            "Variant %s text length (%d) exceeds Twitter %d-char limit",
+            "Variant %s text length (%d) exceeds %d-char limit",
             variant.id[:8],
             len(variant.text),
-            TWITTER_CHAR_LIMIT,
+            max_chars,
         )
 
     try:

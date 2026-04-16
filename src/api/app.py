@@ -6,7 +6,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.config import SCHEDULER_ENABLED, SCHEDULER_INTERVAL_HOURS, validate_config
+from src.config import ALLOWED_CHAR_LIMITS, SCHEDULER_ENABLED, SCHEDULER_INTERVAL_HOURS, validate_config
 from src.models.content import ContentVariant
 from src.models.distribution import DistributionRecord
 from src.models.news import NewsItem
@@ -24,6 +24,7 @@ from src.scheduler import (
     stop_scheduler,
     update_interval,
     update_max_articles,
+    update_max_chars,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,10 +33,10 @@ logger = logging.getLogger(__name__)
 def _scheduler_pipeline_callback() -> None:
     """Callback invoked by APScheduler to run the pipeline."""
     status = get_scheduler_status()
-    run = PipelineRun(trigger="scheduler")
+    run = PipelineRun(trigger="scheduler", max_chars=status["max_chars"])
     _runs[run.id] = run
     _variants[run.id] = []
-    _execute_pipeline(run.id, max_articles=status["max_articles"], trigger="scheduler")
+    _execute_pipeline(run.id, max_articles=status["max_articles"], max_chars=status["max_chars"], trigger="scheduler")
 
 
 @asynccontextmanager
@@ -74,16 +75,17 @@ def _all_variants() -> list[ContentVariant]:
     return [v for vs in _variants.values() for v in vs]
 
 
-def _execute_pipeline(run_id: str, max_articles: int = 3, trigger: str = "api") -> None:
+def _execute_pipeline(run_id: str, max_articles: int = 3, max_chars: int = 280, trigger: str = "api") -> None:
     """Background task: run the pipeline and update the stored run/variants."""
     try:
-        run, top_variants, dist_records = run_pipeline(trigger=trigger, max_articles=max_articles)
+        run, top_variants, dist_records = run_pipeline(trigger=trigger, max_articles=max_articles, max_chars=max_chars)
         # Copy results into the pre-created run entry
         stored = _runs[run_id]
         stored.status = run.status
         stored.news_count = run.news_count
         stored.variants_generated = run.variants_generated
         stored.variants_posted = run.variants_posted
+        stored.max_chars = run.max_chars
         stored.completed_at = run.completed_at
         stored.error = run.error
         _variants[run_id] = top_variants
@@ -108,6 +110,7 @@ def get_news() -> list[NewsItem]:
 
 class RunRequest(BaseModel):
     max_articles: int = 3
+    max_chars: int = 280
 
 
 class RunResponse(BaseModel):
@@ -118,10 +121,10 @@ class RunResponse(BaseModel):
 @app.post("/run")
 def post_run(background_tasks: BackgroundTasks, body: RunRequest = RunRequest()) -> RunResponse:
     """Trigger a full pipeline run (executes in the background)."""
-    run = PipelineRun(trigger="api")
+    run = PipelineRun(trigger="api", max_chars=body.max_chars)
     _runs[run.id] = run
     _variants[run.id] = []
-    background_tasks.add_task(_execute_pipeline, run.id, body.max_articles)
+    background_tasks.add_task(_execute_pipeline, run.id, body.max_articles, body.max_chars)
     return RunResponse(run=run, top_variants=[])
 
 
@@ -196,6 +199,7 @@ class SchedulerStatus(BaseModel):
     running: bool
     interval_hours: int
     max_articles: int
+    max_chars: int
     next_run_time: str | None
 
 
@@ -236,6 +240,22 @@ def post_scheduler_max_articles(req: MaxArticlesRequest) -> SchedulerStatus:
             detail=f"max_articles must be one of {ALLOWED_ARTICLE_COUNTS}",
         )
     update_max_articles(req.max_articles)
+    return SchedulerStatus(**get_scheduler_status())
+
+
+class MaxCharsRequest(BaseModel):
+    max_chars: int
+
+
+@app.post("/scheduler/max-chars")
+def post_scheduler_max_chars(req: MaxCharsRequest) -> SchedulerStatus:
+    """Update the max character limit for scheduled pipeline runs."""
+    if req.max_chars not in ALLOWED_CHAR_LIMITS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"max_chars must be one of {ALLOWED_CHAR_LIMITS}",
+        )
+    update_max_chars(req.max_chars)
     return SchedulerStatus(**get_scheduler_status())
 
 

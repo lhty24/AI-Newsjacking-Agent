@@ -16,6 +16,13 @@ def main() -> int:
         default=3,
         help="Number of articles to process (default: 3)",
     )
+    parser.add_argument(
+        "--max-chars",
+        type=int,
+        choices=[280, 500, 1000, 2500, 5000, 10000, 25000],
+        default=280,
+        help="Max characters per tweet (default: 280)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -33,7 +40,7 @@ def main() -> int:
         logging.error("%s", e)
         return 1
 
-    run, top_variants, dist_records = run_pipeline(trigger="cli", max_articles=args.max_articles)
+    run, top_variants, dist_records = run_pipeline(trigger="cli", max_articles=args.max_articles, max_chars=args.max_chars)
 
     if run.status == "failed":
         return 1

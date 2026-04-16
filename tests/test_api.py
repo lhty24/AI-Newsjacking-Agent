@@ -103,7 +103,7 @@ def test_post_run_with_max_articles(client, sample_run):
     with patch("src.api.app.run_pipeline", return_value=(run, variants, [])) as mock_run:
         resp = client.post("/run", json={"max_articles": 5})
     assert resp.status_code == 200
-    mock_run.assert_called_once_with(trigger="api", max_articles=5)
+    mock_run.assert_called_once_with(trigger="api", max_articles=5, max_chars=280)
 
 
 def test_post_run_stores_results(client, sample_run):

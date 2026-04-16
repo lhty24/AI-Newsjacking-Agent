@@ -38,15 +38,17 @@ _STYLE_INSTRUCTION = {
     ),
 }
 
-_RESPONSE_INSTRUCTION = (
-    '\n\nReturn JSON with a single field "text" containing the tweet (max 280 chars). '
-    "Respond ONLY with valid JSON. No markdown, no explanation, no extra text."
-)
+def _response_instruction(max_chars: int) -> str:
+    """Build the response format instruction with a dynamic character limit."""
+    return (
+        f'\n\nReturn JSON with a single field "text" containing the tweet (max {max_chars} chars). '
+        "Respond ONLY with valid JSON. No markdown, no explanation, no extra text."
+    )
 
-STYLE_PROMPTS = {
-    style: instruction + _RESPONSE_INSTRUCTION
-    for style, instruction in _STYLE_INSTRUCTION.items()
-}
+
+def _build_style_prompt(style: str, max_chars: int) -> str:
+    """Combine style instruction with response format for the given character limit."""
+    return _STYLE_INSTRUCTION[style] + _response_instruction(max_chars)
 
 
 def _build_generation_prompt(analysis: AnalysisResult) -> str:
@@ -93,9 +95,9 @@ def _parse_tweet_response(raw: str) -> str:
     return data["text"]
 
 
-def _generate_single(analysis: AnalysisResult, style: str) -> ContentVariant:
+def _generate_single(analysis: AnalysisResult, style: str, max_chars: int = 280) -> ContentVariant:
     """Generate a single content variant for a given style."""
-    system_prompt = STYLE_PROMPTS[style]
+    system_prompt = _build_style_prompt(style, max_chars)
     user_prompt = _build_generation_prompt(analysis)
     temperature = STYLE_TEMPERATURES[style]
 
@@ -111,7 +113,7 @@ def _generate_single(analysis: AnalysisResult, style: str) -> ContentVariant:
 
 
 def generate_variants(
-    analysis: AnalysisResult, styles: list[str] | None = None
+    analysis: AnalysisResult, styles: list[str] | None = None, max_chars: int = 280
 ) -> list[ContentVariant]:
     """Generate content variants for each style with graceful degradation."""
     if styles is None:
@@ -120,7 +122,7 @@ def generate_variants(
     results: list[ContentVariant] = []
     for style in styles:
         try:
-            variant = _generate_single(analysis, style)
+            variant = _generate_single(analysis, style, max_chars=max_chars)
             results.append(variant)
         except Exception:
             logger.warning("Generation failed for style '%s'", style)

@@ -14,6 +14,7 @@ class PipelineRun(BaseModel):
     news_count: int = 0
     variants_generated: int = 0
     variants_posted: int = 0
+    max_chars: int = 280
     error: str | None = None
     stage_errors: dict[str, int] = Field(
         default_factory=dict,

@@ -27,6 +27,9 @@ TWITTER_ACCESS_TOKEN_SECRET = os.environ.get("TWITTER_ACCESS_TOKEN_SECRET", "")
 SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "false").lower() == "true"
 SCHEDULER_INTERVAL_HOURS = int(os.environ.get("SCHEDULER_INTERVAL_HOURS", "12"))
 
+# Tweet character limit options
+ALLOWED_CHAR_LIMITS = [280, 500, 1000, 2500, 5000, 10000, 25000]
+
 
 class ConfigError(Exception):
     """Raised when required configuration is missing or invalid."""
