@@ -21,7 +21,7 @@ class TestCLIMain:
 
         assert exit_code == 0
         mock_validate.assert_called_once()
-        mock_run.assert_called_once_with(trigger="cli", max_articles=3)
+        mock_run.assert_called_once_with(trigger="cli", max_articles=3, max_chars=280)
 
     @patch(f"{MODULE}.run_pipeline")
     @patch(f"{MODULE}.validate_config")
@@ -33,7 +33,7 @@ class TestCLIMain:
             exit_code = main()
 
         assert exit_code == 0
-        mock_run.assert_called_once_with(trigger="cli", max_articles=5)
+        mock_run.assert_called_once_with(trigger="cli", max_articles=5, max_chars=280)
 
     @patch(f"{MODULE}.run_pipeline")
     @patch(f"{MODULE}.validate_config")

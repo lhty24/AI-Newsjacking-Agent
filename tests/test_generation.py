@@ -6,9 +6,9 @@ import pytest
 from src.models.analysis import AnalysisResult
 from src.models.content import ContentVariant
 from src.modules.generation import (
-    STYLE_PROMPTS,
     STYLE_TEMPERATURES,
     _build_generation_prompt,
+    _build_style_prompt,
     _parse_tweet_response,
     generate_variants,
 )
@@ -87,7 +87,8 @@ class TestBuildGenerationPrompt:
 class TestStyleConfig:
     def test_all_styles_have_prompts(self):
         for style in ["analytical", "meme", "contrarian"]:
-            assert style in STYLE_PROMPTS
+            prompt = _build_style_prompt(style, 280)
+            assert "280" in prompt
 
     def test_all_styles_have_temperatures(self):
         for style in ["analytical", "meme", "contrarian"]:

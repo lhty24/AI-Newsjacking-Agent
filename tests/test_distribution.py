@@ -103,7 +103,7 @@ def test_post_tweet_character_limit_warning(mock_get_client, long_variant, caplo
         record = post_tweet(long_variant)
 
     assert record.status == "posted"
-    assert "exceeds Twitter" in caplog.text
+    assert "exceeds" in caplog.text and "char limit" in caplog.text
     mock_client.create_tweet.assert_called_once()
 
 

@@ -221,7 +221,7 @@ def test_pipeline_tracks_stage_errors(mock_fetch, mock_analyze, mock_generate, m
     for v in variants:
         v.score = 7.5
     mock_score.return_value = variants
-    mock_post.side_effect = lambda v: DistributionRecord(
+    mock_post.side_effect = lambda v, **kw: DistributionRecord(
         variant_id=v.id, status="pending", error="Twitter disabled",
     )
 

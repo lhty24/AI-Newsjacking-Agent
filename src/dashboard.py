@@ -79,6 +79,7 @@ def page_runs():
             col1, col2 = st.columns(2)
             col1.write(f"**Trigger:** {run['trigger']}")
             col1.write(f"**Started:** {run['started_at']}")
+            col2.write(f"**Max Chars:** {run.get('max_chars', 280)}")
             col2.write(f"**Completed:** {run.get('completed_at', 'N/A')}")
             col2.write(f"**Error:** {run.get('error') or 'None'}")
 
@@ -219,9 +220,14 @@ def main():
         st.divider()
         st.header("Actions")
         article_count = st.selectbox("Articles to process", [1, 3, 5, 10], index=1)
+        char_limit = st.selectbox(
+            "Max chars per tweet",
+            [280, 500, 1000, 2500, 5000, 10000, 25000],
+            index=0,
+        )
         if st.button("🚀 Run Pipeline", use_container_width=True):
             with st.spinner("Triggering pipeline..."):
-                result = api_post("/run", json={"max_articles": article_count})
+                result = api_post("/run", json={"max_articles": article_count, "max_chars": char_limit})
                 if result:
                     st.success(f"Pipeline started: {result['run']['id'][:8]}")
                     st.rerun()
@@ -245,6 +251,21 @@ def main():
 
             if sched_articles != current_articles:
                 api_post("/scheduler/max-articles", json={"max_articles": sched_articles})
+                st.rerun()
+
+            char_options = [280, 500, 1000, 2500, 5000, 10000, 25000]
+            current_chars = sched_status.get("max_chars", 280)
+            chars_idx = char_options.index(current_chars) if current_chars in char_options else 0
+
+            sched_chars = st.selectbox(
+                "Max chars per tweet",
+                char_options,
+                index=chars_idx,
+                key="sched_chars",
+            )
+
+            if sched_chars != current_chars:
+                api_post("/scheduler/max-chars", json={"max_chars": sched_chars})
                 st.rerun()
 
             interval_options = [1, 3, 8, 12, 24]

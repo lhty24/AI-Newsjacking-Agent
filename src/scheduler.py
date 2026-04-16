@@ -5,12 +5,15 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+from src.config import ALLOWED_CHAR_LIMITS
+
 logger = logging.getLogger(__name__)
 
 _scheduler: BackgroundScheduler | None = None
 _callback: Callable | None = None
 _interval_hours: float = 12
 _max_articles: int = 3
+_max_chars: int = 280
 _JOB_ID = "pipeline_scheduled_run"
 
 ALLOWED_INTERVALS = [1, 3, 8, 12, 24]
@@ -87,6 +90,13 @@ def update_max_articles(max_articles: int) -> None:
     logger.info("Scheduler max_articles updated to %d", max_articles)
 
 
+def update_max_chars(max_chars: int) -> None:
+    """Update the max character limit for generated tweets."""
+    global _max_chars
+    _max_chars = max_chars
+    logger.info("Scheduler max_chars updated to %d", max_chars)
+
+
 def update_interval(interval_hours: int) -> None:
     """Reschedule the job with a new interval."""
     global _interval_hours
@@ -114,7 +124,7 @@ def update_interval(interval_hours: int) -> None:
 def get_scheduler_status() -> dict:
     """Return current scheduler state."""
     if _scheduler is None:
-        return {"running": False, "interval_hours": _interval_hours, "max_articles": _max_articles, "next_run_time": None}
+        return {"running": False, "interval_hours": _interval_hours, "max_articles": _max_articles, "max_chars": _max_chars, "next_run_time": None}
     job = _scheduler.get_job(_JOB_ID)
     running = job is not None and job.next_run_time is not None
     next_run = None
@@ -124,5 +134,6 @@ def get_scheduler_status() -> dict:
         "running": running,
         "interval_hours": _interval_hours,
         "max_articles": _max_articles,
+        "max_chars": _max_chars,
         "next_run_time": next_run,
     }
